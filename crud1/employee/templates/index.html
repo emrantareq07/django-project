@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Items Table</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <style>
+        /* Button styling */
+        button {
+            padding: 10px 20px;
+            border: 2px solid black;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .update-button {
+            background-color: yellow;
+            margin-right: 5px;
+            border-color: black;
+            color: rgb(17, 16, 16);
+        }
+
+        .delete-button {
+            background-color: red;
+            margin-right: 5px;
+            color: white;
+        }
+
+        .add-button {
+            background-color: green;
+            margin-right: 5px;
+            color: white;
+        }
+
+        .action-buttons {
+            text-align: center;
+        }
+
+        .action-column {
+            text-align: center;
+        }
+    </style>
+    <script>
+        // Function to get CSRF token from cookie
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        $(document).ready(function () {
+            var currentId = 1; // Initialize the current ID to 1
+
+            // Function to create action buttons
+            function createActionButton(itemId) {
+                return '<button class="update-button" onclick="openUpdateForm(' + itemId + ')">Update</button>' +
+                    '<button class="delete-button" onclick="deleteItem(' + itemId + ')">Delete</button>';
+            }
+
+            // Function to fetch items data and populate the table
+            function fetchItems() {
+                $.ajax({
+                    url: '/api/items/',
+                    type: 'GET',
+                    dataType: 'json',
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+                    },
+                    success: function (response) {
+                        // Clear existing table rows
+                        $('#items-table-body').empty();
+
+                        // Loop through the items and append rows to the table
+                        $.each(response, function (index, item) {
+                            $('#items-table-body').append(
+                                '<tr>' +
+                                '<td>' + currentId++ + '</td>' + // Display currentId and then increment it
+                                '<td>' + item.name + '</td>' +
+                                '<td>' + item.description + '</td>' +
+                                '<td>' + item.price + '</td>' +
+                                '<td class="action-column" >' + createActionButton(item.id) + '</td>' +
+                                '</tr>'
+                            );
+                        });
+                    },
+                    error: function (xhr, status, error) {
+                        // Handle error
+                        console.error(xhr.responseText);
+                    }
+                });
+            }
+
+            // Initial fetch of items
+            fetchItems();
+
+            // Function to open update form
+            window.openUpdateForm = function (itemId) {
+                // Fetch item details from API
+                $.ajax({
+                    url: '/api/items/' + itemId + '/',
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function (item) {
+                        // Populate form fields with item data
+                        $('#update-form #update-item-id').val(item.id);
+                        $('#update-form #update-item-name').val(item.name);
+                        $('#update-form #update-item-description').val(item.description);
+                        $('#update-form #update-item-price').val(item.price);
+
+                        // Display the update form
+                        $('#update-form-container').show();
+                    },
+                    error: function (xhr, status, error) {
+                        // Handle error
+                        console.error(xhr.responseText);
+                    }
+                });
+            };
+
+            // Function to handle update form submission
+            $('#update-form').submit(function (event) {
+                event.preventDefault();
+
+                var itemId = $('#update-item-id').val();
+                var itemName = $('#update-item-name').val();
+                var itemDescription = $('#update-item-description').val();
+                var itemPrice = $('#update-item-price').val();
+
+                // Make PUT request to update item
+                $.ajax({
+                    url: '/api/items/' + itemId + '/',
+                    type: 'PUT',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        name: itemName,
+                        description: itemDescription,
+                        price: itemPrice
+                    }),
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+                    },
+                    success: function (response) {
+                        // If update is successful, reload the page
+                        location.reload();
+                    },
+                    error: function (xhr, status, error) {
+                        // Handle error
+                        console.error(xhr.responseText);
+                    }
+                });
+            });
+
+            // Function to handle delete item
+            window.deleteItem = function (itemId) {
+                $.ajax({
+                    url: '/api/items/' + itemId + '/',
+                    type: 'DELETE',
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+                    },
+                    success: function (response) {
+                        // If delete is successful, reload the page
+                        location.reload();
+                    },
+                    error: function (xhr, status, error) {
+                        // Handle error
+                        console.error(xhr.responseText);
+                    }
+                });
+            };
+
+            // Function to handle add item form submission
+            $('#add-item-form').submit(function (event) {
+                event.preventDefault();
+
+                var itemName = $('#add-item-name').val();
+                var itemDescription = $('#add-item-description').val();
+                var itemPrice = $('#add-item-price').val();
+
+                // Make POST request to create new item
+                $.ajax({
+                    url: '/api/items/',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        name: itemName,
+                        description: itemDescription,
+                        price: itemPrice
+                    }),
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+                    },
+                    success: function (response) {
+                        // If creation is successful, clear the form fields and fetch items again to update the table
+                        $('#add-item-form')[0].reset();
+                        fetchItems();
+                        location.reload();
+                    },
+                    error: function (xhr, status, error) {
+                        // Handle error
+                        console.error(xhr.responseText);
+                    }
+                });
+            });
+        });
+    </script>
+</head>
+
+<body><br><br><br><br>
+    <center>
+        <h1>Items List</h1>
+        <table id="items-table" border="1" style="width: 50%;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Price</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="items-table-body">
+                <!-- Data will be displayed here -->
+            </tbody>
+        </table>
+
+        <!-- Update form -->
+        <div id="update-form-container" style="display: none;">
+            <h2>Update Item</h2>
+            <form id="update-form">
+                <input type="hidden" id="update-item-id" name="id">
+                <label for="update-item-name">Name:</label>
+                <input type="text" id="update-item-name" name="name">
+                <label for="update-item-description">Description:</label>
+                <input type="text" id="update-item-description" name="description">
+                <label for="update-item-price">Price:</label>
+                <input type="text" id="update-item-price" name="price">
+                <button class="update-button" type="submit">Update</button>
+            </form>
+        </div>
+
+        <!-- Add item form -->
+        <div id="add-item-form-container">
+            <h2>Add New Item</h2>
+            <form id="add-item-form">
+                <label for="add-item-name">Name:</label>
+                <input type="text" id="add-item-name" name="name">
+                <label for="add-item-description">Description:</label>
+                <input type="text" id="add-item-description" name="description">
+                <label for="add-item-price">Price:</label>
+                <input type="text" id="add-item-price" name="price">
+                <button class="add-button" type="submit">Add Item</button>
+            </form>
+        </div>
+    </center>
+</body>
+
+</html>
